@@ -1,11 +1,12 @@
-use sha2::Sha256;
-use hmac::{Hmac, Mac};
-use std::io::{self, Write};
 use super::{RawPacket, HEADER_SIZE};
 use crate::security::Secret;
+use hmac::{Hmac, Mac};
+use sha2::Sha256;
+use std::io::{self, Write};
 
 type HmacSha256 = Hmac<Sha256>;
 
+#[derive(Clone)]
 pub struct OutgoingPacket {
     buffer: [u8; 1500],
     bytes_written: usize,
@@ -19,18 +20,26 @@ impl OutgoingPacket {
         }
     }
 
-    pub(crate) fn write_header_and_sign(self, sequence_number: u64, ack_sequence_number: u64, ack_bits: [u8; 4], packet_type: u8, secret: &Secret) -> RawPacket {
+    pub(crate) fn write_header_and_sign(
+        self,
+        sequence_number: u64,
+        ack_sequence_number: u64,
+        ack_bits: [u8; 4],
+        packet_type: u8,
+        secret: &Secret,
+    ) -> RawPacket {
         let bytes_written = self.bytes_written;
         let mut packet = RawPacket::new(self.buffer, bytes_written);
         let mut header = packet.get_header_mut();
-        
+
         header.sequence_number = sequence_number;
         header.ack_sequence_number = ack_sequence_number;
         header.ack_bits = ack_bits;
         header.packet_type = packet_type;
         header.body_length = (bytes_written - HEADER_SIZE) as u16;
 
-        let mut mac = HmacSha256::new_varkey(secret.get_bytes()).expect("HmacSha256 can take a key of any size");
+        let mut mac = HmacSha256::new_varkey(secret.get_bytes())
+            .expect("HmacSha256 can take a key of any size");
         mac.input(&packet.get_buffer()[32..bytes_written]);
 
         let mut header = packet.get_header_mut();
@@ -52,7 +61,7 @@ impl Write for OutgoingPacket {
 
         Ok(len)
     }
-    
+
     fn flush(&mut self) -> Result<(), io::Error> {
         Ok(())
     }
