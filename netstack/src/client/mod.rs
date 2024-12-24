@@ -141,7 +141,7 @@ impl Client {
                 .expect("No timeout set for connection")
                 - 1;
             if timeout == 0 {
-                self.disconnect(connection, &mut events);
+                events.push(self.disconnect(connection));
                 continue;
             } else {
                 self.timeouts.set(connection, timeout);
@@ -188,7 +188,7 @@ impl Client {
         }
     }
 
-    pub fn disconnect(&mut self, connection: Connection, events: &mut Vec<Event>) {
+    pub fn disconnect(&mut self, connection: Connection) -> Event {
         let address = self.addresses.get(connection).unwrap();
 
         self.address_to_connection.remove(address);
@@ -202,7 +202,8 @@ impl Client {
 
         self.connections.delete_connection(connection).unwrap();
         self.monitor.disconnected();
-        events.push(Event::Disconnected { connection });
+        // events.push(Event::Disconnected { connection });
+        Event::Disconnected { connection }
     }
 
     fn send_internal(
