@@ -1,26 +1,19 @@
-use std::net::SocketAddr;
-use std::time::Duration;
 use netstack::{
-    server::{
-        Configuration,
-        Server,
-        Event,
-    },
-    transport::UdpTransport,
-    time::Clock,
-    security::{
-        Secret,
-        ConnectionToken,
-    },
     packets::OutgoingPacket,
+    security::{ConnectionToken, Secret},
+    server::{Configuration, Event, Server},
+    time::Clock,
+    transport::UdpTransport,
 };
 use netstack_prometheus::PrometheusMonitor;
-use std::io::Write;
-use std::thread;
 use serde::{Deserialize, Serialize};
-use std::sync::mpsc::{sync_channel, SyncSender};
 use simple_server::Server as WebServer;
+use std::io::Write;
+use std::net::SocketAddr;
+use std::sync::mpsc::{sync_channel, SyncSender};
 use std::sync::Arc;
+use std::thread;
+use std::time::Duration;
 
 fn generate_secret() -> Secret {
     use rand::Rng;
@@ -46,38 +39,31 @@ fn run_webserver(sender: Arc<SyncSender<(ConnectionToken, Secret)>>) {
     use base58::ToBase58;
 
     thread::spawn(move || {
-        let webserver = WebServer::new(move |request, mut response| {
+        let webserver = WebServer::new(move |request, mut response| match request.uri().path() {
+            "/token" => {
+                let token = generate_connection_token();
+                let secret = generate_secret();
 
-            match request.uri().path() {
-                "/token" => {
-                    let token = generate_connection_token();
-                    let secret = generate_secret();
+                let token_string = token.get_bytes().to_base58();
+                let secret_string = secret.get_bytes().to_base58();
 
-                    let token_string = token.get_bytes().to_base58();
-                    let secret_string = secret.get_bytes().to_base58();
+                let info = ConnectionInfo {
+                    token: token_string,
+                    secret: secret_string,
+                };
+                let send_info = serde_json::to_string(&info).unwrap();
+                sender.send((token, secret)).unwrap();
 
-                    let info = ConnectionInfo {
-                        token: token_string,
-                        secret: secret_string,
-                    };
-                    let send_info = serde_json::to_string(&info).unwrap();
-                    sender.send((token, secret)).unwrap();
-
-                    Ok(response.body(send_info.as_bytes().to_vec())?)
-                },
-                "/metrics" => {
-                    let body = PrometheusMonitor::render();
-                    Ok(response.body(body)?)
-                },
-                "/" => {
-                    Ok(response.body("Hello World!".as_bytes().to_vec())?)
-                },
-                _ => {
-                    Ok(response.status(404).body("Not Found".as_bytes().to_vec())?)
-                },
+                Ok(response.body(send_info.as_bytes().to_vec())?)
             }
+            "/metrics" => {
+                let body = PrometheusMonitor::render();
+                Ok(response.body(body)?)
+            }
+            "/" => Ok(response.body("Hello World!".as_bytes().to_vec())?),
+            _ => Ok(response.status(404).body("Not Found".as_bytes().to_vec())?),
         });
-    
+
         webserver.listen("127.0.0.1", "8000");
     });
 }
@@ -92,6 +78,7 @@ fn main() {
         timeout: 120,
         heartbeat: 60,
         reserved_timeout: 600,
+        allow_all: None,
     };
 
     let monitor = PrometheusMonitor::new();
@@ -103,24 +90,29 @@ fn main() {
     loop {
         match receiver.try_recv() {
             Ok((token, secret)) => {
-                let connection = server.reserve(secret, token).expect("could not reserve a slot");
+                let connection = server
+                    .reserve(secret, token)
+                    .expect("could not reserve a slot");
                 println!("Reserved a slot for a client to connect to {}", connection);
-            },
-            _ => {},
+            }
+            _ => {}
         }
 
         if clock.update() {
             let events = server.update();
-    
+
             for event in events {
                 match event {
                     Event::Connected { connection } => {
                         println!("A client connected to its slot {}", connection);
-                    },
+                    }
                     Event::Disconnected { connection } => {
                         println!("A client disconnected from its slot {}", connection);
-                    },
-                    Event::Message{ connection, payload } => {
+                    }
+                    Event::Message {
+                        connection,
+                        payload,
+                    } => {
                         println!("Message from {}", connection);
 
                         let mut packet = OutgoingPacket::new();
@@ -128,10 +120,16 @@ fn main() {
 
                         let sequence_number = server.send(packet, connection).unwrap();
                         println!("Sent Message {} to client {}", sequence_number, connection);
-                    },
-                    Event::MessageAcknowledged{ connection, sequence_number } => {
-                        println!("Message {} sent to {} got acknowledged", sequence_number, connection);
-                    },
+                    }
+                    Event::MessageAcknowledged {
+                        connection,
+                        sequence_number,
+                    } => {
+                        println!(
+                            "Message {} sent to {} got acknowledged",
+                            sequence_number, connection
+                        );
+                    }
                 }
             }
         }

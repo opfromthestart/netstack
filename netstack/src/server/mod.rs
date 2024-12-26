@@ -270,6 +270,18 @@ impl Server {
                 return;
             };
 
+        if !self
+            .connection_token_to_connection
+            .contains_key(&connection_token)
+        {
+            if let Some(s) = self.configuration.allow_all.clone() {
+                let Ok(_) = self.reserve(s, connection_token.clone()) else {
+                    println!("could not reserve connection token allowed by `allow_all`");
+                    return;
+                };
+            }
+        }
+
         let connection =
             if let Some(connection) = self.connection_token_to_connection.get(&connection_token) {
                 connection.clone()
