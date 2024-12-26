@@ -425,4 +425,19 @@ impl Server {
             .get(&connection)
             .cloned()
     }
+
+    pub fn remove_connection(&mut self, connection: Connection) -> Result<(), ()> {
+        let address = self.addresses.get(connection).ok_or(())?;
+
+        self.address_to_connection.remove(address);
+        self.states.set(connection, ConnectionState::Empty);
+        self.addresses.remove(connection);
+        self.timeouts.remove(connection);
+        self.heartbeats.remove(connection);
+        self.sequence_numbers.remove(connection);
+        self.secrets.remove(connection);
+
+        self.connections.delete_connection(connection)?;
+        Ok(())
+    }
 }
