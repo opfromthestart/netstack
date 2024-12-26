@@ -36,6 +36,7 @@ pub struct Server {
     replay_buffers: ConnectionDataList<ReplayBuffer>,
     ack_buffers: ConnectionDataList<ReplayBuffer>,
     connection_token_to_connection: HashMap<ConnectionToken, Connection>,
+    connection_to_connection_token: HashMap<Connection, ConnectionToken>,
     address_to_connection: HashMap<SocketAddr, Connection>,
 
     monitor: Box<dyn ServerMonitor>,
@@ -63,6 +64,7 @@ impl Server {
             connection_token_to_connection: HashMap::new(),
             address_to_connection: HashMap::new(),
             monitor,
+            connection_to_connection_token: HashMap::new(),
         }
     }
 
@@ -86,7 +88,9 @@ impl Server {
             self.replay_buffers.set(connection, ReplayBuffer::new());
             self.ack_buffers.set(connection, ReplayBuffer::new());
             self.connection_token_to_connection
-                .insert(connection_token, connection);
+                .insert(connection_token.clone(), connection);
+            self.connection_to_connection_token
+                .insert(connection, connection_token);
 
             self.monitor.reserved();
 
@@ -331,6 +335,7 @@ impl Server {
 
         self.connection_token_to_connection
             .remove(&connection_token);
+        self.connection_to_connection_token.remove(&connection);
 
         self.states.set(connection, ConnectionState::Connected);
         self.addresses.set(connection, address);
@@ -413,5 +418,11 @@ impl Server {
         self.send_internal(packet, connection, PacketType::Heartbeat)?;
 
         Ok(())
+    }
+
+    pub fn get_token_from_connection(&self, connection: Connection) -> Option<ConnectionToken> {
+        self.connection_to_connection_token
+            .get(&connection)
+            .cloned()
     }
 }

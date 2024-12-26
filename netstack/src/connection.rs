@@ -1,7 +1,7 @@
-use std::fmt;
 use std::collections::VecDeque;
+use std::fmt;
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct Connection {
     id: usize,
     generation: usize,
@@ -9,10 +9,7 @@ pub struct Connection {
 
 impl Connection {
     pub(crate) fn new(id: usize, generation: usize) -> Self {
-        Self {
-            id,
-            generation,
-        }
+        Self { id, generation }
     }
 }
 
@@ -29,7 +26,6 @@ pub struct ConnectionList {
 
 impl ConnectionList {
     pub fn new(size: usize) -> Self {
-
         let mut connections = Vec::with_capacity(size);
         let mut empty = VecDeque::with_capacity(size);
         for i in 0..size {
@@ -37,10 +33,7 @@ impl ConnectionList {
             empty.push_back(i);
         }
 
-        Self {
-            connections,
-            empty,
-        }
+        Self { connections, empty }
     }
 
     pub fn is_alive(&self, connection: Connection) -> bool {
@@ -54,7 +47,6 @@ impl ConnectionList {
     }
 
     pub fn create_connection(&mut self) -> Option<Connection> {
-
         let id = self.empty.pop_front()?;
 
         let old_connection = self.connections[id];
@@ -71,7 +63,7 @@ impl ConnectionList {
         let old_connection = self.connections[id];
 
         if connection.generation != old_connection.generation {
-            return Err(())
+            return Err(());
         }
 
         let new_connection = Connection::new(id, old_connection.generation + 1);
@@ -94,7 +86,7 @@ impl<'a> Iterator for ConnectionIterator<'a> {
         while self.index < self.list.connections.len() {
             let connection = self.list.connections[self.index];
             self.index += 1;
-            
+
             if self.list.is_alive(connection) {
                 return Some(connection);
             }
@@ -123,7 +115,6 @@ pub struct ConnectionDataList<T> {
 
 impl<T> ConnectionDataList<T> {
     pub fn new(size: usize) -> Self {
-
         let mut items = Vec::with_capacity(size);
         let mut generations = Vec::with_capacity(size);
         for _ in 0..size {
@@ -131,15 +122,12 @@ impl<T> ConnectionDataList<T> {
             generations.push(0);
         }
 
-        Self {
-            items,
-            generations,
-        }
+        Self { items, generations }
     }
 
     pub fn get(&self, connection: Connection) -> Option<&T> {
         let id = connection.id;
-        
+
         // the generation needs to match the exact generation that was inserted
         // so that a newer generation doesn't get old data
         if connection.generation != self.generations[id] {
