@@ -284,6 +284,7 @@ impl Server {
                     return;
                 };
             }
+            println!("Added from allow_all");
         }
 
         let connection =
@@ -333,9 +334,9 @@ impl Server {
             });
         }
 
-        self.connection_token_to_connection
-            .remove(&connection_token);
-        self.connection_to_connection_token.remove(&connection);
+        // self.connection_token_to_connection
+        //     .remove(&connection_token);
+        // self.connection_to_connection_token.remove(&connection);
 
         self.states.set(connection, ConnectionState::Connected);
         self.addresses.set(connection, address);
