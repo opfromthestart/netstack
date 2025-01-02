@@ -110,6 +110,7 @@ impl Server {
             match self.transport.poll(&mut buffer) {
                 Ok(Some((length, address))) => {
                     let packet = RawPacket::new(buffer, length);
+                    // println!("Got packet from {address} len {length}");
 
                     if let Some(connection) = self.find_connection(&address) {
                         self.handle_message(connection, packet, &mut events);
@@ -133,7 +134,9 @@ impl Server {
                 .get(connection)
                 .expect("No timeout set for connection")
                 - 1;
+            // println!("Timeout {timeout}");
             if timeout == 0 {
+                println!("Disconnect");
                 let address = self.addresses.get(connection).unwrap();
 
                 self.address_to_connection.remove(address);

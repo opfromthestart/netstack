@@ -19,6 +19,7 @@ impl fmt::Display for Connection {
     }
 }
 
+#[derive(Debug)]
 pub struct ConnectionList {
     connections: Vec<Connection>,
     empty: VecDeque<usize>,
@@ -108,6 +109,7 @@ impl<'a> IntoIterator for &'a ConnectionList {
     }
 }
 
+#[derive(Debug)]
 pub struct ConnectionDataList<T> {
     items: Vec<Option<T>>,
     generations: Vec<usize>,

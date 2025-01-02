@@ -83,6 +83,7 @@ impl Client {
 
         if let Some(connection) = self.connections.create_connection() {
             self.addresses.set(connection, remote_address);
+            println!("connect1");
             self.address_to_connection
                 .insert(remote_address, connection);
             self.timeouts.set(connection, self.configuration.timeout);
@@ -120,7 +121,10 @@ impl Client {
                     if let Some(connection) = self.find_connection(&address) {
                         self.handle_message(connection, packet, &mut events);
                     } else {
-                        println!("message from unknown source");
+                        println!(
+                            "message from unknown source {address} {:?} {:?}",
+                            self.address_to_connection, self.addresses,
+                        );
                     }
                 }
                 Ok(None) => {
@@ -191,6 +195,7 @@ impl Client {
     pub fn disconnect(&mut self, connection: Connection) -> Event {
         let address = self.addresses.get(connection).unwrap();
 
+        println!("disconnect1");
         self.address_to_connection.remove(address);
         self.states.set(connection, ConnectionState::Disconnected);
         self.addresses.remove(connection);
